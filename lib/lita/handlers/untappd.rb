@@ -6,7 +6,7 @@ module Lita
   class Untappd < Handler
     on :connected, :start_announcer
 
-    route /^untappd fetch/, :manual_fetch
+    route /^untappd fetch/, :manual_fetch, restrict_to: [:admins]
     route /^untappd identify (\w+)/, :associate
     route %r{^[iI](?: a|')m (\w+) on untappd}, :associate, command: true
     route /^untappd known/, :known_users
