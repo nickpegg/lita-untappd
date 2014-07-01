@@ -98,27 +98,39 @@ module Lita
     def associate(response)
       username = response.matches[0][0]
 
+      # Verify that they're a real Untappd user
+      user_info = ::Untappd::User.info(username)
+      if user_info.empty?
+        response.reply_with_mention("#{username} doesn't exist on Untappd")
+        return
+      end
+
       # Check to make sure the username isn't already taken
+      log.debug("Checking to make sure #{username} isn't already associated with someone")
+
+      if username == redis.get("username_#{response.user.id}")
+        response.reply_with_mention("You're already associated with #{username}")
+        return
+      end
+
       redis.keys("username_*").each do |key|
         redis_username = redis.get(key)
-        log.debug ("Redis username: #{redis_username}, username I got: #{username}")
 
-        if !redis_username.nil? and redis_username == username
+        if redis_username == username
           response.reply_with_mention("That username is already associated with someone!")
           return
         end
       end
 
-      # [todo] Verify that they're a real Untappd user
-
+      # Remember them
       redis.set("username_#{response.user.id}", username)
-      response.reply_with_mention("got it")
 
       # stash last checkin ID, avoid wharrgarbl
       last_checkin_id = ::Untappd::User.feed(username).checkins.items.first.checkin_id
       redis.set("last_#{response.user.id}", last_checkin_id)
 
       log.info("Added #{username} (#{response.user.name}) with last checkin_id of #{last_checkin_id}")
+      response.reply_with_mention("got it")
     end
 
     def known_users(response)
