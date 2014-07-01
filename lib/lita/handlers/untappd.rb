@@ -8,9 +8,14 @@ module Lita
 
     route /^untappd fetch/, :manual_fetch
     route /^untappd identify (\w+)/, :associate
-    route /^untappd known/, :known_users
     route %r{^[iI](?: a|')m (\w+) on untappd}, :associate, command: true
-    route /^untappd forget/, :forget
+    route /^untappd known/, :known_users
+
+    route /^untappd forget$/, :forget_me
+    route /^untappd forget (\w+)/, :forget_person, restrict_to: [:admins], help: {
+      "untappd forget <person>" => "Forgets the person with the given chat name"
+    }
+
     route /^untappd check ?in (.+)/, :checkin
 
     def self.default_config(config)
@@ -122,11 +127,26 @@ module Lita
       end
     end
 
-    def forget(response)
+    def forget_me(response)
       redis.del("username_#{response.user.id}")
       redis.del("last_#{response.user.id}")
 
       response.reply_with_mention("You've been disassociated with Untappd")
+    end
+
+    def forget_person(response)
+      user = User.find_by_name(response.matches[0][0])
+      if user.nil?
+        response.reply_with_mention("I don't know about #{response.matches[0][0]}")
+        return
+      end
+
+      username = redis.get("username_#{user.id}")
+
+      redis.del("username_#{user.id}")
+      redis.del("last_#{user.id}")
+
+      response.reply_with_mention("Forgot #{user.name}, who is #{username} on Untappd")
     end
 
     def manual_fetch(response)
