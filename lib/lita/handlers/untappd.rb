@@ -8,6 +8,7 @@ module Lita
 
     route /^untappd fetch/, :manual_fetch
     route /^untappd identify (\w+)/, :associate
+    route /^untappd known/, :known_users
     route %r{^[iI](?: a|')m (\w+) on untappd}, :associate, command: true
     route /^untappd forget/, :forget
     route /^untappd check ?in (.+)/, :checkin
@@ -107,9 +108,18 @@ module Lita
       # [todo] Verify that they're a real Untappd user
 
       redis.set("username_#{response.user.id}", username)
-      response.reply_with_mention("ok " + redis.get("username_#{response.user.id}"))
+      response.reply_with_mention("got it")
 
       # [todo] stash last checkin ID, avoid wharrgarbl
+    end
+
+    def known_users(response)
+      redis.keys("username_*").each do |key|
+        username = redis.get(key)
+        nick = User.find_by_id(key.split(/_/).last)
+
+        response.reply("#{nick.name} is #{username}")
+      end
     end
 
     def forget(response)
