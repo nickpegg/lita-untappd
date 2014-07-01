@@ -131,6 +131,7 @@ module Lita
       redis.del("username_#{response.user.id}")
       redis.del("last_#{response.user.id}")
 
+      log.info("#{response.user.name} made me forget about them")
       response.reply_with_mention("You've been disassociated with Untappd")
     end
 
@@ -146,6 +147,7 @@ module Lita
       redis.del("username_#{user.id}")
       redis.del("last_#{user.id}")
 
+      log.info("#{response.user.name} made me forget about #{user.name} who is #{username}")
       response.reply_with_mention("Forgot #{user.name}, who is #{username} on Untappd")
     end
 
