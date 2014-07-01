@@ -7,7 +7,7 @@ Please excuse the mess, this is still very much a work in progress.
 ## Configuration
 
 Add these to your Lita config:
-``` ruby
+```
 config.handlers.untappd.client_id = <Untappd API client ID>
 config.handlers.untappd.client_secret = <your Untappd API client secret>
 ```
@@ -25,11 +25,21 @@ config.handlers.untappd.interval = <minutes>
 
 
 ## Usage
+1. Identify yourself
+2. Drink beer
+3. Check beer in
+4. Watch as your bot announces your alcoholism to the world
 
 ### Identify yourself
 ```
 untappd identify <username>     - Associate yourself to an Untappd username
 untappd forget                  - Have the bot forget who you are
+```
+
+### Miscellaneous
+```
+untappd fetch                   - Manually fetch checkins. Will be removed later to be nice 
+                                  to the Untappd API
 ```
 
 ## License
