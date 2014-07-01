@@ -99,7 +99,6 @@ module Lita
       username = response.matches[0][0]
 
       # Check to make sure the username isn't already taken
-      taken = false
       redis.keys("username_*").each do |key|
         redis_username = redis.get(key)
         log.debug ("Redis username: #{redis_username}, username I got: #{username}")
@@ -115,7 +114,11 @@ module Lita
       redis.set("username_#{response.user.id}", username)
       response.reply_with_mention("got it")
 
-      # [todo] stash last checkin ID, avoid wharrgarbl
+      # stash last checkin ID, avoid wharrgarbl
+      last_checkin_id = ::Untappd::User.feed(username).checkins.items.first.checkin_id
+      redis.set("last_#{response.user.id}", last_checkin_id)
+
+      log.info("Added #{username} (#{response.user.name}) with last checkin_id of #{last_checkin_id}")
     end
 
     def known_users(response)
