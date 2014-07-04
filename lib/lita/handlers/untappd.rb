@@ -201,12 +201,8 @@ module Lita
 
     def debug_nuke(response)
       # Nuke everything from Redis
-      redis.smembers("users").each do |username|
-        userid = redis.get("id_#{username}")
-
-        redis.del("username_#{userid}")
-        redis.del("id_#{username}")
-        redis.del("last_#{username}")
+      ['username', 'id', 'last'].each do |thing|
+        redis.keys("#{thing}_*").each { |k| redis.del(k) }
       end
 
       redis.del("users")
