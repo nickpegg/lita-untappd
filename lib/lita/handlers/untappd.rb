@@ -22,6 +22,7 @@ module Lita
 
     # Debugging routes
     route /^untappd debug fetch (\w+)$/, :debug_fetch, restrict_to: [:admins]
+    route /^untappd debug nuke$/, :debug_nuke, restrict_to: [:admins]
 
 
     def self.default_config(config)
@@ -196,6 +197,21 @@ module Lita
       fetch(user).each do |user, checkin|
         response.reply("#{user.name} drank a #{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}")
       end
+    end
+
+    def debug_nuke(response)
+      # Nuke everything from Redis
+      redis.smembers("users").each do |username|
+        userid = redis.get("id_#{username}")
+
+        redis.del("username_#{userid}")
+        redis.del("id_#{username}")
+        redis.del("last_#{username}")
+      end
+
+      redis.del("users")
+
+      log.info("#{response.user.name} nuked the untappd info")
     end
 
     def checkin(response)
