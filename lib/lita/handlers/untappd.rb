@@ -7,7 +7,9 @@ module Lita
     on :connected, :start_announcer
 
     route /^untappd fetch/, :manual_fetch, restrict_to: [:admins]
-    route /^untappd identify (\w+)/, :associate
+    route /^untappd identify (\w+)/, :associate, help: {
+      "untappd identify <username>" => "Associates <username> on Untappd to you, will start announcing beers you drink."
+    }
     route %r{^[iI](?: a|')m (\w+) on untappd}, :associate, command: true
     route /^untappd known/, :known_users
 
@@ -17,6 +19,10 @@ module Lita
     }
 
     route /^untappd check ?in (.+)/, :checkin
+
+    # Debugging routes
+    route /^untappd debug fetch (\w+)$/, :debug_fetch, restrict_to: [:admins]
+
 
     def self.default_config(config)
       config.client_id = nil
@@ -34,22 +40,22 @@ module Lita
       end
     end
 
-    def fetch(userid)
+    def fetch(username)
       fetched_checkins = []
+      user = User.find_by_id(redis.get("id_#{username}"))
 
-      user = User.find_by_id(userid)
-      log.debug "Getting checkins for #{user.name}"
+      log.debug("Getting checkins for #{user.name}")
 
-      last = redis.get("last_#{userid}")
+      last = redis.get("last_#{username}")
       last = last ? last.to_i : 0
 
       log.debug "Last checkin ID: #{last}"
 
-      checkins = ::Untappd::User.feed(redis.get("username_#{userid}")).checkins
+      checkins = ::Untappd::User.feed(username).checkins
 
       return [] if checkins.nil?
 
-      log.debug "Got #{checkins['count']} potential checkins for #{user.name}"
+      log.debug "Got #{checkins['count']} potential checkins for #{username}"
       checkins.items.reverse.each do |checkin|
         if checkin.checkin_id > last
           last = checkin.checkin_id
@@ -57,7 +63,7 @@ module Lita
         end
       end
 
-      redis.set("last_#{userid}", last)
+      redis.set("last_#{username}", last)
 
       log.debug "Got #{fetched_checkins.count} total checkins"
 
@@ -67,10 +73,8 @@ module Lita
     def fetch_all
       fetched_checkins = []
 
-      user_keys = redis.keys('username_*')
-      user_keys.each do |k|
-        jawn, userid = k.split(/_/)
-        fetched_checkins += fetch(userid)
+      redis.smembers("users").each do |username|
+        fetched_checkins += fetch(username)
       end
 
       return fetched_checkins
@@ -87,6 +91,7 @@ module Lita
       # Periodically grab new beers that people have drank and announce them to the configured channel
       every(config.interval * 60) do |timer|
         fetch_all().each do |user, checkin|
+          # [todo] see if there's a better way to do this
           robot.send_message(Lita::Source.new(room: config.channel), "#{user.name} drank a #{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}")
         end
       end
@@ -113,38 +118,39 @@ module Lita
         return
       end
 
-      redis.keys("username_*").each do |key|
-        redis_username = redis.get(key)
-
-        if redis_username == username
-          response.reply_with_mention("That username is already associated with someone!")
-          return
-        end
+      if redis.sismember("users", username)
+        response.reply_with_mention("That username is already associated with someone!")
+        return
       end
 
       # Remember them
       redis.set("username_#{response.user.id}", username)
+      redis.set("id_#{username}", response.user.id)
+      redis.sadd("users", username)
 
       # stash last checkin ID, avoid wharrgarbl
       last_checkin_id = ::Untappd::User.feed(username).checkins.items.first.checkin_id
-      redis.set("last_#{response.user.id}", last_checkin_id)
+      redis.set("last_#{username}", last_checkin_id)
 
       log.info("Added #{username} (#{response.user.name}) with last checkin_id of #{last_checkin_id}")
       response.reply_with_mention("got it")
     end
 
     def known_users(response)
-      redis.keys("username_*").each do |key|
-        username = redis.get(key)
-        nick = User.find_by_id(key.split(/_/).last)
+      redis.smembers("users").each do |username|
+        nick = User.find_by_id(redis.get("id_#{username}"))
 
         response.reply("#{nick.name} is #{username}")
       end
     end
 
     def forget_me(response)
+      username = redis.get("username_#{response.user.id}")
+
       redis.del("username_#{response.user.id}")
-      redis.del("last_#{response.user.id}")
+      redis.del("id_#{username}")
+      redis.srem("users", username)
+      redis.del("last_#{username}")
 
       log.info("#{response.user.name} made me forget about them")
       response.reply_with_mention("You've been disassociated with Untappd")
@@ -159,8 +165,9 @@ module Lita
 
       username = redis.get("username_#{user.id}")
 
+      redis.srem("users", username)
       redis.del("username_#{user.id}")
-      redis.del("last_#{user.id}")
+      redis.del("last_#{username}")
 
       log.info("#{response.user.name} made me forget about #{user.name} who is #{username}")
       response.reply_with_mention("Forgot #{user.name}, who is #{username} on Untappd")
@@ -168,6 +175,25 @@ module Lita
 
     def manual_fetch(response)
       fetch_all().each do |user, checkin|
+        response.reply("#{user.name} drank a #{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}")
+      end
+    end
+
+    def debug_fetch(response)
+      user = response.matches[0][0]
+
+      log.info("Clearing last for #{user} and fetching all available checkins")
+
+      unless redis.sismember("users", user)
+        response.reply("I don't know about #{user}")
+        return
+      end
+
+      # Set last ID to 0 to fetch all checkins
+      log.debug("Set last_#{user} to 0")
+      redis.set("last_#{user}", 0)
+
+      fetch(user).each do |user, checkin|
         response.reply("#{user.name} drank a #{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}")
       end
     end
