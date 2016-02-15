@@ -257,7 +257,11 @@ module Lita
           beers << "#{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}"
         end
 
-        response.reply("#{user}'s last few beers: #{beers.join(', ')}")
+        if beers.empty?
+          response.reply("#{user}'s last few beers: #{beers.join(', ')}")
+        else
+          response.reply("#{user} hasn't checked in any beers!")
+        end
       end
 
       def forget_me(response)
