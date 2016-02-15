@@ -220,12 +220,14 @@ module Lita
 
       # Posts the last three beers of a user, or the last day's worth, whichever is more
       def last_checkins(response)
-        user = response.matches.first.first || response.user
+        user = response.matches.first.first || response.user.name
 
         if redis.sismember('users', user)
+          log.debug("#{user} looks like an Untappd user")
           untappd_user = user
         else
           # look up the Untappd user for this chat user
+          log.debug("#{user} looks like it may be a chat user")
           chat_user = User.fuzzy_find(user)
 
           unless chat_user
@@ -237,6 +239,7 @@ module Lita
         end
 
         # Get the last three or today's checkins, whichever is more
+        log.info("Getting last few beers for Untappd user #{untappd_user}")
         checkins = ::Untappd::User.feed(untappd_user).checkins.items
         last_24_hour_checkins = checkins.find_all do |checkin|
           Time.parse(checkin.created_at) > (Time.now - (60 * 60 * 24))
