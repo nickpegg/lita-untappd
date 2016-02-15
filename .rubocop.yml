@@ -1,0 +1,20 @@
+inherit_from:
+  - .rubocop_todo.yml
+
+Metrics/AbcSize:
+  Severity: warning
+
+Metrics/ClassLength:
+  Severity: warning
+
+Metrics/LineLength:
+  Max: 120
+
+Style/Documentation:
+  Exclude:
+    - 'spec/**/*'
+    - 'test/**/*'
+
+Style/FileName:
+  Exclude:
+    - 'lib/lita-untappd.rb'

@@ -1,2 +1,4 @@
-require "lita-untappd"
-require "lita/rspec"
+require 'lita-untappd'
+require 'lita/rspec'
+
+Lita.version_3_compatibility_mode = false
