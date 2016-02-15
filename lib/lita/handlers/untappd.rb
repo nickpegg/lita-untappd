@@ -41,6 +41,16 @@ module Lita
       )
 
       route(
+        /^untappd last ?(\w+)?/,
+        :last_checkins,
+        command: true,
+        help: {
+          'untappd last' => 'Show your last three beers',
+          'untappd last <username>' => 'Show the last three beers that <username> has drank'
+        }
+      )
+
+      route(
         /^untappd forget$/,
         :forget_me,
         command: true,
@@ -79,6 +89,7 @@ module Lita
       end
 
       def fetch(username)
+        # TODO: refactor this to use fetch_beers
         fetched_checkins = []
         user = Lita::User.find_by_id(redis.get("id_#{username}"))
 
@@ -205,6 +216,45 @@ module Lita
             response.reply("#{nick.name} is #{username} on Untappd")
           end
         end
+      end
+
+      # Posts the last three beers of a user, or the last day's worth, whichever is more
+      def last_checkins(response)
+        user = response.matches.first.first || response.user
+
+        if redis.sismember('users', user)
+          untappd_user = user
+        else
+          # look up the Untappd user for this chat user
+          chat_user = User.fuzzy_find(user)
+
+          unless chat_user
+            response.reply_with_mention("I don't know anyone by that name")
+            return
+          end
+
+          untappd_user = redis.get("username_#{chat_user.id}")
+        end
+
+        # Get the last three or today's checkins, whichever is more
+        checkins = ::Untappd::User.feed(untappd_user).checkins.items
+        last_24_hour_checkins = checkins.find_all do |checkin|
+          Time.parse(checkin.created_at) > (Time.now - (60 * 60 * 24))
+        end
+
+        if last_24_hour_checkins.length >= 3
+          checkins = last_24_hour_checkins
+        else
+          checkins = checkins.take 3
+        end
+
+        # accounce last beers
+        beers = []
+        checkins.each do |checkin|
+          beers << "#{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}"
+        end
+
+        response.reply("#{user}'s last few beers: #{beers.join(', ')}")
       end
 
       def forget_me(response)
