@@ -251,6 +251,8 @@ module Lita
           checkins = checkins.take 3
         end
 
+        log.debug("Got #{checkins.length} checkins for #{untappd_user}")
+
         # accounce last beers
         beers = []
         checkins.each do |checkin|
@@ -258,9 +260,9 @@ module Lita
         end
 
         if beers.empty?
-          response.reply("#{user}'s last few beers: #{beers.join(', ')}")
-        else
           response.reply("#{user} hasn't checked in any beers!")
+        else
+          response.reply("#{user}'s last few beers: #{beers.join(', ')}")
         end
       end
 
