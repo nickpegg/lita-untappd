@@ -142,6 +142,7 @@ module Lita
 
         # Periodically grab new beers that people have drank and announce them to the configured room
         every(config.interval * 60) do
+          log.info "Checking for new checkins to announce to #{config.room}"
           fetch_all.each do |user, checkin|
             # TODO: see if there's a better way to do this than yelling at _some room
             # TODO: Announce earned badges
