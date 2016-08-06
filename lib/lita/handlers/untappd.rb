@@ -142,15 +142,20 @@ module Lita
 
         # Periodically grab new beers that people have drank and announce them to the configured room
         every(config.interval * 60) do
-          log.info "Checking for new checkins to announce to #{config.room}"
-          fetch_all.each do |user, checkin|
-            # TODO: see if there's a better way to do this than yelling at _some room
-            # TODO: Announce earned badges
-            log.info "Telling #{config.room} about checkin #{checkin.checkin_id} from #{user.name}"
-            robot.send_message(
-              Lita::Source.new(room: config.room),
-              "#{user.name} drank a #{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}"
-            )
+          begin
+            log.info "Checking for new checkins to announce to #{config.room}"
+            fetch_all.each do |user, checkin|
+              # TODO: see if there's a better way to do this than yelling at _some room
+              # TODO: Announce earned badges
+              log.info "Telling #{config.room} about checkin #{checkin.checkin_id} from #{user.name}"
+              robot.send_message(
+                Lita::Source.new(room: config.room),
+                "#{user.name} drank a #{checkin.beer.beer_name} by #{checkin.brewery.brewery_name}"
+              )
+            end
+          rescue Exception => ex
+            log.error "Got #{ex.class} exception while announcing: #{ex.message}"
+            log.error ex.backtrace.join("\n")
           end
         end
         log.info "Announcer started, announcing every #{config.interval} minutes"
