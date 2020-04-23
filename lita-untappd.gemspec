@@ -22,5 +22,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'pry-rescue', '~> 1.4', '>= 1.4.2'
   spec.add_development_dependency 'rake'
   spec.add_development_dependency 'rspec', '>= 3.0.0'
-  spec.add_development_dependency 'rubocop', '~> 0.37.2'
+  spec.add_development_dependency 'rubocop', '>= 0.49.0'
 end
